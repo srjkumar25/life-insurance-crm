@@ -92,7 +92,6 @@ export default function CRMPage(){
   if(error){setError(error.message);return}
   setContacts(current=>current.map(c=>c.id===contact.id?{...c,[field]:value}:c));
  }
- async function complete(id:string){const {error}=await supabase.from("crm_follow_ups").update({status:"Completed",completed_at:new Date().toISOString()}).eq("id",id);if(error)setError(error.message);else await load()}
  async function deletePolicy(p:Row){
   const ok=window.confirm(`Delete policy record for ${p.policyholder_name || "this policy"}? This cannot be undone.`);
   if(!ok)return;
@@ -102,6 +101,33 @@ export default function CRMPage(){
   if(error){setError(error.message);return}
   await load();
  }
+async function complete(id: string) {
+  setError("");
+
+  const { data: auth, error: authError } =
+    await supabase.auth.getUser();
+
+  if (authError || !auth.user) {
+    setError("Please sign in again.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("crm_follow_ups")
+    .update({
+      status: "Completed",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("owner_id", auth.user.id);
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  await load();
+}
  const opts=(items:Row[])=>items.map(c=>({value:c.id,label:`${c.full_name} — ${c.mobile}`}));
  return <main className="app"><aside className="side"><div className="brand"><b>LI</b><span><strong>LifeCare CRM</strong><small>Sales workspace</small></span></div><p className="navlabel">WORKSPACE</p>{tabs.map(t=><button key={t} className={tab===t?"nav active":"nav"} onClick={()=>setTab(t)}>{t}</button>)}<div className="userbox"><small>Signed in</small><b>{user||"Checking session…"}</b></div></aside>
  <section className="main"><header className="top"><div><small>LIFE INSURANCE</small><h1>{tab}</h1></div><button className="btn secondary" onClick={()=>void load()}>Refresh</button></header>
