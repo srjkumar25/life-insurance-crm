@@ -20,9 +20,18 @@ export default function CRMPage(){
  const [editingContact,setEditingContact]=useState<Row|null>(null);
  const [editingReference,setEditingReference]=useState<Row|null>(null);
  const [contactReferences,setContactReferences]=useState<Row|null>(null);
+ async function handleLogout() {
+  setError("");
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    setError(error.message);
+    return;
+  }
+  window.location.replace("/login");
+ }
  const load=useCallback(async()=>{
   setLoading(true);setError("");const {data:auth}=await supabase.auth.getUser();
-  if(!auth.user){setError("Please sign in using your Supabase Auth login before opening CRM.");setLoading(false);return}
+  if(!auth.user){window.location.replace("/login");return}
   setUser(auth.user.email||"");
   const [c,l,f,p,r]=await Promise.all([
    supabase.from("crm_contacts").select("*").order("created_at",{ascending:false}),
@@ -130,7 +139,7 @@ async function complete(id: string) {
 }
  const opts=(items:Row[])=>items.map(c=>({value:c.id,label:`${c.full_name} — ${c.mobile}`}));
  return <main className="app"><aside className="side"><div className="brand"><b>LI</b><span><strong>LifeCare CRM</strong><small>Sales workspace</small></span></div><p className="navlabel">WORKSPACE</p>{tabs.map(t=><button key={t} className={tab===t?"nav active":"nav"} onClick={()=>setTab(t)}>{t}</button>)}<div className="userbox"><small>Signed in</small><b>{user||"Checking session…"}</b></div></aside>
- <section className="main"><header className="top"><div><small>LIFE INSURANCE</small><h1>{tab}</h1></div><button className="btn secondary" onClick={()=>void load()}>Refresh</button></header>
+ <section className="main"><header className="top"><div><small>LIFE INSURANCE</small><h1>{tab}</h1></div><div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}><button className="btn secondary" onClick={()=>void load()}>Refresh</button><button className="btn secondary" onClick={()=>void handleLogout()}>Logout</button></div></header>
  {error&&<div className="error">{error}</div>}{loading?<p className="empty">Loading CRM…</p>:<>
  {tab==="Overview"&&<div className="content"><div className="hero"><div><small>YOUR SALES OVERVIEW</small><h2>Track every conversation and next step.</h2><p>Contacts, call notes, policy stages and referrals in one place.</p></div><button className="btn white" onClick={()=>{setTab("Contacts");setModal("Contacts")}}>+ Add contact</button></div><div className="metrics">{[[ "Contacts",contacts.length,"All saved contacts"],["Open leads",contacts.filter(c=>!["Policy Issued","Not Interested","Do Not Contact"].includes(c.lead_status)).length,"Still in progress"],["Due today",dueToday,`${overdue} overdue`],["Policies issued",issued.length,"Issued only"],["Issued premium",inr(premium),"Recorded premium total"],["References",refs.length,"Referral records"]].map(([a,b,c])=><div className="metric" key={String(a)}><small>{a}</small><strong>{b}</strong><span>{c}</span></div>)}</div><div className="panel"><h3>Upcoming / overdue follow-ups</h3>{due.slice(0,8).map(f=><div className="row" key={f.id}><div><b>{name(f.contact_id)}</b><small>{f.purpose}</small></div><span className={f.due_at.slice(0,10)<today?"late":"pill"}>{date(f.due_at)}</span><button className="btn secondary" onClick={()=>void complete(f.id)}>Complete</button></div>)}{!due.length&&<p className="empty">No open follow-ups. Add one after your next call.</p>}</div></div>}
  {tab==="Contacts"&&<div className="content"><div className="sectionhead"><div><h2>Contact directory</h2><p>Self contacts and referrals are grouped together.</p></div><button className="btn primary" onClick={()=>{setEditingContact(null);setModal("Contacts")}}>+ New contact</button></div><div className="contact-filters" style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:"16px",flexWrap:"wrap",marginBottom:"18px"}}><input className="search" style={{flex:"0 1 520px",width:"min(520px, 100%)",marginBottom:0}} placeholder="Search name, mobile, email or area…" value={search} onChange={e=>setSearch(e.target.value)}/><label className="field filter-field" style={{flex:"0 1 520px",width:"min(520px, 100%)",marginBottom:0}}><span>Filter by lead status</span><select value={leadStatusFilter} onChange={e=>setLeadStatusFilter(e.target.value as "All"|"Interested"|"Not Interested")}><option value="All">Both (Interested + Not Interested)</option><option value="Interested">Interested</option><option value="Not Interested">Not Interested</option></select></label></div><div className="tablewrap"><table><thead><tr><th>Contact Type</th><th>Name</th><th>Mobile</th><th>Email Id</th><th>Area</th><th>State</th><th>Lead Status</th><th>Priority</th><th>References</th><th>Actions</th><th>Edit</th></tr></thead><tbody>{(() => {
